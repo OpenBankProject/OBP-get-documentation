@@ -21,15 +21,20 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"sort"
 	"time"
+
+	obp "github.com/tawoe/obp-go-sdk"
 )
 
 // declaring a struct
@@ -418,6 +423,30 @@ func main() {
 
 }
 
+func writeResourceDocs(filepath string, obpApiHost string, apiVersion string, standard string, token string) error {
+	// create the server's http client for obp
+	client_conf := obp.Configuration{
+		BasePath:      obpApiHost,
+		DefaultHeader: make(map[string]string),
+		UserAgent:     "golang-get-documentation",
+	}
+	client_conf.AddDefaultHeader("Authorization", fmt.Sprintf("DirectLogin token=%s", token))
+	client := obp.NewAPIClient(&client_conf)
+
+	docs, _, err := client.APIApi.GetResourceDocsObpV400(context.Background(), obp.EmptyClassJson{}, apiVersion)
+	if err != nil {
+		log.Printf("writeResourceDocs error: %s", err)
+	}
+
+	jsonDocs, err := json.Marshal(docs)
+	if err != nil {
+		log.Printf("writeResourceDocs error, error marshalling docs: %s", err)
+	}
+	os.WriteFile(filepath, jsonDocs, 0644)
+
+	return nil
+}
+
 func loopDynamicEndpoints(obpApiHost string, myToken string, loopCreateDynamicEndpoints int) {
 
 	for i := 1; i <= loopCreateDynamicEndpoints; i++ {
@@ -785,7 +814,7 @@ func getRoot(obpApiHost string, token string) (root, error) {
 }
 
 func sortResourceDocs(rds ResourceDocs) (ResourceDocs, error) {
-	sort.SliceStable(rds, func(i, j int) bool {
+	sort.Slice(rds.ResourceDocs, func(i, j int) bool {
 		return rds.ResourceDocs[i].Summary < rds.ResourceDocs[j].Summary
 	})
 	return rds, nil
