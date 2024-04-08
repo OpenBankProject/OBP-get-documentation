@@ -1,21 +1,11 @@
 // OBP Get Documentation
 
-// This script exercises the OBP Metrics and Resource Doc endpoints.
+// This script exercises the Resource Doc (and soon, Glossary) endpoints.
 
 // Run with:
 // go run get-documentation.go -obpapihost http://127.0.0.1:8080 -username YOUR USERNAME -password haGdju%YOUR PASSWORD -consumer YOUR CONSUMER KEY -maxOffsetMetrics 5 -maxLimitMetrics 5 -apiexplorerhost https://apiexplorer-ii-sandbox.openbankproject.com -loopResourceDocs 10 -printResourceDocs 1 -loopCreateDynamicEndpoints 5
 
-// This script will try and grant entitlements to your user and then GET Metrics with different pagination to cause lots of cache misses.
-// One way to ensure this works - is to add your User ID to the OBP API Props super_admin_user_ids, else, grant yourself CanCreateEntitlementAtAnyBank manually and then the rest should work.
-
 // This script will print your user_id as a helper.
-// maxOffsetMetrics and maxLimitMetrics affect the number of iterations that will run and the pagination values.
-// loopResourceDocs will affect the number of iterations getting Resource Docs.
-
-// For inserting into Google Big Query you'll need default application credentials
-// ./google-cloud-sdk/bin/gcloud init
-
-// export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/application_default_credentials.json
 
 package main
 
