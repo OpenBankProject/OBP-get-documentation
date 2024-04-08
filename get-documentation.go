@@ -3,7 +3,7 @@
 // This script exercises the Resource Doc (and soon, Glossary) endpoints.
 
 // Run with:
-// go run get-documentation.go -obpapihost http://127.0.0.1:8080 -username YOUR USERNAME -password haGdju%YOUR PASSWORD -consumer YOUR CONSUMER KEY -maxOffsetMetrics 5 -maxLimitMetrics 5 -apiexplorerhost https://apiexplorer-ii-sandbox.openbankproject.com -loopResourceDocs 10 -printResourceDocs 1 -loopCreateDynamicEndpoints 5
+// go run get-documentation.go -obpapihost http://127.0.0.1:8080 -username YOUR USERNAME -password haGdju%YOUR PASSWORD -consumer YOUR CONSUMER KEY -maxOffsetMetrics 5 -maxLimitMetrics 5 -apiexplorerhost https://apiexplorer-ii-sandbox.openbankproject.com -loopResourceDocs 10 -printResourceDocs 1
 
 // This script will print your user_id as a helper.
 
@@ -348,7 +348,6 @@ func main() {
 	var maxLimitMetrics int
 
 	var loopResourceDocs int
-	var loopCreateDynamicEndpoints int
 
 	var tags string
 	var printResourceDocs int
@@ -364,7 +363,6 @@ func main() {
 	flag.IntVar(&maxLimitMetrics, "maxLimitMetrics", 5, "Provide your maxLimitMetrics")
 
 	flag.IntVar(&loopResourceDocs, "loopResourceDocs", 5, "Provide your loopResourceDocs")
-	flag.IntVar(&loopCreateDynamicEndpoints, "loopCreateDynamicEndpoints", 5, "Provide your loopCreateDynamicEndpoints")
 
 	flag.IntVar(&printResourceDocs, "printResourceDocs", 0, "Print the found Resource Docs (1) or not (0)")
 
@@ -382,7 +380,6 @@ func main() {
 	fmt.Println(apiExplorerHost)
 
 	fmt.Println(loopResourceDocs)
-	fmt.Println(loopCreateDynamicEndpoints)
 
 	fmt.Println(printResourceDocs)
 
@@ -406,8 +403,6 @@ func main() {
 		}
 
 		//createEntitlements(obpApiHost, myToken)
-
-		//loopDynamicEndpoints(obpApiHost, myToken, loopCreateDynamicEndpoints)
 
 		//getVariousResourceDocs(obpApiHost, myToken, apiExplorerHost, tags, loopResourceDocs, printResourceDocs)
 
