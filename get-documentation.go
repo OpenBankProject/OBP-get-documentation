@@ -498,14 +498,6 @@ func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, sta
 	return nil
 }
 
-func loopDynamicEndpoints(obpApiHost string, myToken string, loopCreateDynamicEndpoints int) {
-
-	for i := 1; i <= loopCreateDynamicEndpoints; i++ {
-		var modifier string = randSeq(10)
-		createDynamicEndpoints(obpApiHost, myToken, modifier)
-	}
-}
-
 func getVariousResourceDocs(obpApiHost string, myToken string, apiExplorerHost string, tags string, loopResourceDocs int, printResourceDocs int) {
 	for i := 1; i <= loopResourceDocs; i++ {
 		myRDCount, myRDError := getResourceDocs(obpApiHost, myToken, i, "static", apiExplorerHost, tags, printResourceDocs)
@@ -736,65 +728,6 @@ func createEntitlement(obpApiHost string, token string, userID string, bankId st
 
 	if err1 != nil {
 		fmt.Println("Failure : ", err1)
-	}
-
-	// Read Response Body
-	respBody, _ := io.ReadAll(resp.Body)
-
-	// Display Results
-	fmt.Println("response Status : ", resp.Status)
-	//fmt.Println("response Headers : ", resp.Header)
-	fmt.Println("response Body : ", string(respBody))
-
-	return err1
-
-}
-
-func createDynamicEndpoints(obpApiHost string, token string, modifier string) error {
-
-	// Create client
-	client := &http.Client{}
-
-	// Create request
-
-	requestURL := fmt.Sprintf("%s/obp/v5.1.0/management/dynamic-endpoints", obpApiHost)
-
-	swaggerData := getSwagger(modifier)
-
-	fmt.Println("Swagger Version:", swaggerData.Swagger)
-	fmt.Println("Info Title:", swaggerData.Info.Title)
-	fmt.Println("Info Version:", swaggerData.Info.Version)
-	fmt.Println("Host:", swaggerData.Host)
-	fmt.Println("Schemes:", swaggerData.Schemes)
-	fmt.Println("Definitions:", swaggerData.Definitions)
-	fmt.Println("Paths:", swaggerData.Paths)
-
-	// Convert the struct to json
-	swaggerJson, err := json.Marshal(swaggerData)
-	if err != nil {
-		fmt.Printf("impossible to marshall swagger: %s", err)
-	} else {
-		fmt.Println("Marshalled data into json ok")
-	}
-
-	req, errx := http.NewRequest("POST", requestURL, bytes.NewReader(swaggerJson))
-
-	if errx != nil {
-		fmt.Println("Failure creating NewRequest: ", errx)
-	}
-
-	req.Header = http.Header{
-		"Content-Type": {"application/json"},
-		"DirectLogin":  {fmt.Sprintf("token=%s", token)},
-	}
-
-	fmt.Println("Before creating resource doc : ")
-
-	// Fetch Request
-	resp, err1 := client.Do(req)
-
-	if err1 != nil {
-		fmt.Println("****** Failure creating resource docs : ", err1)
 	}
 
 	// Read Response Body
