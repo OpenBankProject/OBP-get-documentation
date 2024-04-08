@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"time"
 )
 
@@ -349,12 +348,15 @@ func main() {
 	var tags string
 	var printResourceDocs int
 
+	var outputDir string
+
 	flag.StringVar(&obpApiHost, "obpapihost", "YOUR OBP HOST", "Provide an OBP host to test (include the protocol and port)")
 	flag.StringVar(&username, "username", "YOUR USERNAME", "Username to access the service with")
 	flag.StringVar(&password, "password", "YOUR PASSWORD", "Provide your password")
 	flag.StringVar(&consumerKey, "consumer", "YOUR CONSUMER KEY", "Provide your consumer key")
 	flag.StringVar(&apiExplorerHost, "apiexplorerhost", "API EXPLORER II HOST", "Provide API Explorer II for documentation links ")
 	flag.StringVar(&tags, "tags", "", "Provide Resource Doc tags")
+	flag.StringVar(&outputDir, "outputDir", "", "Provide name of a directory where documentation files will be saved")
 
 	flag.IntVar(&maxOffsetMetrics, "maxOffsetMetrics", 10, "Provide your maxOffsetMetrics")
 	flag.IntVar(&maxLimitMetrics, "maxLimitMetrics", 5, "Provide your maxLimitMetrics")
@@ -394,7 +396,17 @@ func main() {
 			fmt.Printf("errRoot: %s\n", errRoot)
 		}
 
-		err := writeResourceDocs("resource-docs", obpApiHost, "v5.1.0", "OBP", myToken)
+		err := writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-RD", outputDir), obpApiHost, "v5.1.0", "OBP", myToken)
+		if err != nil {
+			log.Printf("error writing resource docs: %s", err)
+		}
+
+		err = writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-Swagger", outputDir), obpApiHost, "v5.1.0", "OBP", myToken)
+		if err != nil {
+			log.Printf("error writing resource docs: %s", err)
+		}
+
+		err = writeGlossary(fmt.Sprintf("%s/Glossary", outputDir), obpApiHost)
 		if err != nil {
 			log.Printf("error writing resource docs: %s", err)
 		}
@@ -451,14 +463,6 @@ func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, sta
 		return err
 	}
 
-	/* Marshal response into json
-	jsonDocs, err := json.Marshal(responseBody)
-	if err != nil {
-		log.Printf("error marhsalling json response: %s", err)
-		return err
-	}
-	*/
-
 	// Create directory
 	dir := filepath.Join(".", dirname)
 	err = os.MkdirAll(dir, os.ModePerm)
@@ -478,45 +482,50 @@ func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, sta
 	return nil
 }
 
-func getVariousResourceDocs(obpApiHost string, myToken string, apiExplorerHost string, tags string, loopResourceDocs int, printResourceDocs int) {
-	for i := 1; i <= loopResourceDocs; i++ {
-		myRDCount, myRDError := getResourceDocs(obpApiHost, myToken, i, "static", apiExplorerHost, tags, printResourceDocs)
+func writeGlossary(dirname string, obpApiHost string) error {
+	endpointString := fmt.Sprintf("%s/obp/v5.1.0/api/glossary", obpApiHost)
 
-		if myRDError == nil {
-			fmt.Printf("we got %d resource docs \n", myRDCount)
-		} else {
-			fmt.Printf("we got error %s getting resource docs \n", myRDError)
-		}
-
-		if myRDError == nil {
-			fmt.Printf("we got %d resource docs \n", myRDCount)
-		} else {
-			fmt.Printf("we got error %s getting resource docs\n", myRDError)
-		}
-
-		myRDCount, myRDError = getResourceDocs(obpApiHost, myToken, i, "dynamic", apiExplorerHost, tags, printResourceDocs)
-
-		if myRDError == nil {
-			fmt.Printf("we got %d resource docs\n", myRDCount)
-		} else {
-			fmt.Printf("we got error %s getting resource docs\n", myRDError)
-		}
-
-		if myRDError == nil {
-			fmt.Printf("we got %d resource docs\n", myRDCount)
-		} else {
-			fmt.Printf("we got error %s getting resource docs\n", myRDError)
-		}
-
-		myRDCount, myRDError = getResourceDocs(obpApiHost, myToken, i, "all", apiExplorerHost, tags, printResourceDocs)
-
-		if myRDError == nil {
-			fmt.Printf("we got %d resource docs\n", myRDCount)
-		} else {
-			fmt.Printf("we got error %s getting resource docs\n", myRDError)
-		}
+	// Create http request
+	request, err := http.NewRequest("GET", endpointString, nil)
+	if err != nil {
+		log.Printf("Error creating HTTP request to OBP: %s", err)
+	}
+	// Add directlogin header
+	request.Header = http.Header{
+		"Content-Type": {"application/json"},
 	}
 
+	// Send the request
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		log.Printf("Error sending request to OBP: %s\n", err)
+		return err
+	}
+	// Read the response
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("Error reading response body: %s", err)
+		return err
+	}
+
+	// Create directory
+	dir := filepath.Join(".", dirname)
+	err = os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		log.Printf("error creating directory: %s", err)
+		return err
+	}
+
+	// Write to json file
+	fileName := "Glossary.json"
+	path := filepath.Join(".", dirname, fileName)
+	err = os.WriteFile(path, responseBody, 0644)
+	if err != nil {
+		log.Printf("writeGlossary error, could not write to file \"%s\": %s", path, err)
+		return err
+	}
+
+	return nil
 }
 
 func getDirectLoginToken(obpApiHost string, username string, password string, consumerKey string) (string, error) {
@@ -774,168 +783,6 @@ func getRoot(obpApiHost string, token string) (root, error) {
 	fmt.Println("------- End of Response Headers --------")
 
 	return myRoot, err2
-
-}
-
-func sortResourceDocs(rds ResourceDocs) (ResourceDocs, error) {
-	sort.Slice(rds.ResourceDocs, func(i, j int) bool {
-		return rds.ResourceDocs[i].Summary < rds.ResourceDocs[j].Summary
-	})
-	return rds, nil
-}
-
-func sortResourceDocsByID(docs *ResourceDocs) (ResourceDocs, error) {
-	// Define a custom sorting function
-	less := func(i, j int) bool {
-		return docs.ResourceDocs[i].OperationID < docs.ResourceDocs[j].OperationID
-	}
-
-	// Sort the ResourceDocs using the custom sorting function
-	sort.Slice(docs.ResourceDocs, less)
-
-	return *docs, nil
-}
-
-func getResourceDocs(obpApiHost string, token string, tryCount int, content string, apiExplorerHost string, tags string, printResourceDocs int) (int, error) {
-
-	fmt.Println("Hello from getResourceDocs. Using obpApiHost: ", obpApiHost)
-
-	// Create client
-	client := &http.Client{}
-
-	// defining a struct instance, we will put the token in this.
-	var myResourceDocs ResourceDocs
-
-	requestURL := fmt.Sprintf("%s/obp/v5.1.0/resource-docs/OBPv5.1.0/obp?tags=%s&content=%s", obpApiHost, tags, content)
-
-	fmt.Println("requestURL : ", requestURL)
-
-	req, erry := http.NewRequest("GET", requestURL, nil)
-	if erry != nil {
-		fmt.Println("Failure : ", erry)
-	}
-
-	req.Header = http.Header{
-		"Content-Type": {"application/json"},
-		"DirectLogin":  {fmt.Sprintf("token=%s", token)},
-	}
-
-	before := time.Now()
-
-	// Fetch Request
-	resp, err1 := client.Do(req)
-
-	after := time.Now()
-
-	duration := after.Sub(before)
-
-	if err1 != nil {
-		fmt.Println("***** Failure when getting Resource Docs: ", err1)
-	}
-
-	// Read Response Body
-	respBody, _ := io.ReadAll(resp.Body)
-
-	// Display Results
-	fmt.Println("getResourceDocs response Status : ", resp.Status)
-
-	fmt.Println(fmt.Sprintf("getResourceDocs response Status was %s, duration was %s, tryCount was %d, content was %s ", resp.Status, duration, tryCount, content))
-
-	if resp.StatusCode != 200 {
-		fmt.Println("getResourceDocs response Body : ", string(respBody))
-		fmt.Println(fmt.Sprintf("tryCount was %d", tryCount))
-		fmt.Println(fmt.Sprintf("content was %s", content))
-	}
-
-	err2 := json.Unmarshal(respBody, &myResourceDocs)
-
-	if err2 != nil {
-		fmt.Println(err2)
-	}
-
-	// sort here
-
-	sortedResourceDocs, err3 := sortResourceDocsByID(&myResourceDocs)
-
-	if err3 != nil {
-		fmt.Println(err3)
-	}
-
-	/* Example data for testing
-
-
-	jsonData := `{
-	    "resource_docs": [
-	        {
-	            "operation_id": "OBPv1.4.0-testResourceDoc",
-	            "implemented_by": {
-	                "version": "OBPv1.4.0",
-	                "function": "testResourceDoc"
-	            },
-	            "request_verb": "GET",
-	            "request_url": "/dummy",
-	            "summary": "Test Resource Doc",
-	            "description": "<p>I am only a test Resource Doc</p>\n<p>Authentication is Mandatory</p>\n<p><strong>JSON response body fields:</strong></p>\n",
-	            "description_markdown": "I am only a test Resource Doc\n\nAuthentication is Mandatory\n\n\n**JSON response body fields:**\n\n\n",
-	            "example_request_body": {
-	                "jsonString": "{}"
-	            },
-	            "success_response_body": {
-	                "jsonString": "{}"
-	            },
-	            "error_response_bodies": [
-	                "OBP-50000: Unknown Error.",
-	                "OBP-20001: User not logged in. Authentication is required!",
-	                "OBP-20006: User is missing one or more roles: "
-	            ],
-	            "tags": [
-	                "Documentation"
-	            ],
-	            "typed_request_body": {
-	                "type": "object",
-	                "properties": {
-	                    "jsonString": {
-	                        "type": "string"
-	                    }
-	                }
-	            },
-	            "typed_success_response_body": {
-	                "type": "object",
-	                "properties": {
-	                    "jsonString": {
-	                        "type": "string"
-	                    }
-	                }
-	            },
-	            "roles": [
-	                {
-	                    "role": "CanGetCustomers",
-	                    "requires_bank_id": true
-	                }
-	            ],
-	            "is_featured": false,
-	            "special_instructions": "",
-	            "specified_url": "",
-	            "connector_methods": []
-	        }
-	    ]
-	}`
-	*/
-
-	if printResourceDocs == 1 { // Trying to use bool here was ugly
-
-		for i := 0; i < len(sortedResourceDocs.ResourceDocs); i++ {
-			//fmt.Printf(" OperationID: %s Summary: %s \n", myResourceDocs.ResourceDocs[i].OperationID, myResourceDocs.ResourceDocs[i].Summary)
-
-			fmt.Printf("[%s](%s/operationid/%s)\n", sortedResourceDocs.ResourceDocs[i].Summary, apiExplorerHost, sortedResourceDocs.ResourceDocs[i].OperationID)
-		}
-
-	}
-	// obpApiExplorerHost
-
-	// https://apiexplorer-ii-sandbox.openbankproject.com/operationid/OBPv4.0.0-getBankLevelEndpointTags?version=OBPv5.1.0
-
-	return len(sortedResourceDocs.ResourceDocs), nil
 
 }
 
