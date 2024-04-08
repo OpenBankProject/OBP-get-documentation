@@ -31,6 +31,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"time"
 
@@ -409,13 +410,18 @@ func main() {
 			fmt.Printf("errRoot: %s\n", errRoot)
 		}
 
-		createEntitlements(obpApiHost, myToken)
+		err := writeResourceDocs("resource-docs", obpApiHost, "v3.0.0", "OBP", myToken)
+		if err != nil {
+			log.Printf("error writing resource docs: %s", err)
+		}
 
-		loopDynamicEndpoints(obpApiHost, myToken, loopCreateDynamicEndpoints)
+		//createEntitlements(obpApiHost, myToken)
 
-		getVariousResourceDocs(obpApiHost, myToken, apiExplorerHost, tags, loopResourceDocs, printResourceDocs)
+		//loopDynamicEndpoints(obpApiHost, myToken, loopCreateDynamicEndpoints)
 
-		getDynamicMessageDocs(obpApiHost, myToken, loopResourceDocs, apiExplorerHost)
+		//getVariousResourceDocs(obpApiHost, myToken, apiExplorerHost, tags, loopResourceDocs, printResourceDocs)
+
+		//getDynamicMessageDocs(obpApiHost, myToken, loopResourceDocs, apiExplorerHost)
 
 	} else {
 		fmt.Printf("Hmm, getDirectLoginToken returned an error: %s - I will stop now. \n", dlTokenError)
@@ -423,7 +429,7 @@ func main() {
 
 }
 
-func writeResourceDocs(filepath string, obpApiHost string, apiVersion string, standard string, token string) error {
+func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, standard string, token string) error {
 	// create the server's http client for obp
 	client_conf := obp.Configuration{
 		BasePath:      obpApiHost,
@@ -431,18 +437,73 @@ func writeResourceDocs(filepath string, obpApiHost string, apiVersion string, st
 		UserAgent:     "golang-get-documentation",
 	}
 	client_conf.AddDefaultHeader("Authorization", fmt.Sprintf("DirectLogin token=%s", token))
+	client_conf.AddDefaultHeader("Content-type", "application/json")
 	client := obp.NewAPIClient(&client_conf)
 
-	docs, _, err := client.APIApi.GetResourceDocsObpV400(context.Background(), obp.EmptyClassJson{}, apiVersion)
-	if err != nil {
-		log.Printf("writeResourceDocs error: %s", err)
-	}
+	if standard == "swagger" {
+		docs, resp, err := client.APIApi.GetResourceDocsSwagger(context.Background(), obp.EmptyClassJson{}, apiVersion)
 
-	jsonDocs, err := json.Marshal(docs)
-	if err != nil {
-		log.Printf("writeResourceDocs error, error marshalling docs: %s", err)
+		if err != nil {
+			responseBody, resperr := io.ReadAll(resp.Body)
+			if resperr != nil {
+				log.Printf("Error reading response body: %s", resperr)
+			}
+			log.Printf("writeResourceDocs error: %s, Response Body: %s", err, responseBody)
+		}
+
+		jsonDocs, err := json.Marshal(docs)
+		if err != nil {
+			log.Printf("writeResourceDocs error, error marshalling docs: %s", err)
+		}
+
+		// Create directory
+		dir := filepath.Join(".", dirname)
+		err = os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			log.Printf("error creating directory: %s", err)
+		}
+
+		// Write to json file
+		path := filepath.Join(".", dirname, "ResourceDocsSwagger.json")
+		err = os.WriteFile(path, jsonDocs, 0644)
+		if err != nil {
+			log.Printf("writeResourceDocs error, could not write to file \"%s\": %s", path, err)
+		}
+
+	} else if standard == "OBP" {
+		docs, resp, err := client.APIApi.GetResourceDocsObpV400(context.Background(), obp.EmptyClassJson{}, apiVersion)
+		log.Print(docs)
+		//log.Printf("%#v", docs)
+		if err != nil {
+			responseBody, resperr := io.ReadAll(resp.Body)
+			if resperr != nil {
+				log.Printf("Error reading response body: %s", resperr)
+			}
+			log.Printf("writeResourceDocs error: %s, Response Body: %s", err, responseBody)
+		}
+
+		jsonDocs, err := json.Marshal(docs)
+		if err != nil {
+			log.Printf("writeResourceDocs error, error marshalling docs: %s", err)
+		}
+
+		// Create directory
+		dir := filepath.Join(".", dirname)
+		err = os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			log.Printf("error creating directory: %s", err)
+		}
+
+		// Write to json file
+		path := filepath.Join(".", dirname, "ResourceDocs.json")
+		err = os.WriteFile(path, jsonDocs, 0644)
+		if err != nil {
+			log.Printf("writeResourceDocs error, could not write to file \"%s\": %s", path, err)
+		}
+
+	} else {
+		log.Printf("error, unknown standard \"%s\", supported standards are \"swagger\" or \"OBP\"", standard)
 	}
-	os.WriteFile(filepath, jsonDocs, 0644)
 
 	return nil
 }
