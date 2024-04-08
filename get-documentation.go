@@ -417,11 +417,11 @@ func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, sta
 	var fileName string
 	if standard == "swagger" {
 		endpointString = fmt.Sprintf("%s/obp/v5.1.0/resource-docs/%s/swagger", obpApiHost, apiVersion)
-		fileName = "ResourceDocsSwagger.json"
+		fileName = fmt.Sprintf("Swagger-OBP%s.json", apiVersion)
 
 	} else if standard == "OBP" {
 		endpointString = fmt.Sprintf("%s/obp/v5.1.0/resource-docs/%s/obp", obpApiHost, apiVersion)
-		fileName = "ResourceDocs.json"
+		fileName = fmt.Sprintf("ResourceDocs-OBP%s.json", apiVersion)
 
 	} else {
 		log.Printf("error, unknown standard \"%s\", supported standards are \"swagger\" or \"OBP\"", standard)
