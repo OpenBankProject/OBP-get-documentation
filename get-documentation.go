@@ -11,7 +11,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -24,8 +23,6 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
-
-	obp "github.com/tawoe/obp-go-sdk"
 )
 
 // declaring a struct
@@ -397,7 +394,7 @@ func main() {
 			fmt.Printf("errRoot: %s\n", errRoot)
 		}
 
-		err := writeResourceDocs("resource-docs", obpApiHost, "v3.0.0", "OBP", myToken)
+		err := writeResourceDocs("resource-docs", obpApiHost, "v5.1.0", "OBP", myToken)
 		if err != nil {
 			log.Printf("error writing resource docs: %s", err)
 		}
@@ -415,79 +412,67 @@ func main() {
 }
 
 func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, standard string, token string) error {
-	// create the server's http client for obp
-	client_conf := obp.Configuration{
-		BasePath:      obpApiHost,
-		DefaultHeader: make(map[string]string),
-		UserAgent:     "golang-get-documentation",
-	}
-	client_conf.AddDefaultHeader("Authorization", fmt.Sprintf("DirectLogin token=%s", token))
-	client_conf.AddDefaultHeader("Content-type", "application/json")
-	client := obp.NewAPIClient(&client_conf)
 
+	var endpointString string
+	var fileName string
 	if standard == "swagger" {
-		docs, resp, err := client.APIApi.GetResourceDocsSwagger(context.Background(), obp.EmptyClassJson{}, apiVersion)
-
-		if err != nil {
-			responseBody, resperr := io.ReadAll(resp.Body)
-			if resperr != nil {
-				log.Printf("Error reading response body: %s", resperr)
-			}
-			log.Printf("writeResourceDocs error: %s, Response Body: %s", err, responseBody)
-		}
-
-		jsonDocs, err := json.Marshal(docs)
-		if err != nil {
-			log.Printf("writeResourceDocs error, error marshalling docs: %s", err)
-		}
-
-		// Create directory
-		dir := filepath.Join(".", dirname)
-		err = os.MkdirAll(dir, os.ModePerm)
-		if err != nil {
-			log.Printf("error creating directory: %s", err)
-		}
-
-		// Write to json file
-		path := filepath.Join(".", dirname, "ResourceDocsSwagger.json")
-		err = os.WriteFile(path, jsonDocs, 0644)
-		if err != nil {
-			log.Printf("writeResourceDocs error, could not write to file \"%s\": %s", path, err)
-		}
+		endpointString = fmt.Sprintf("%s/obp/v5.1.0/resource-docs/%s/swagger", obpApiHost, apiVersion)
+		fileName = "ResourceDocsSwagger.json"
 
 	} else if standard == "OBP" {
-		docs, resp, err := client.APIApi.GetResourceDocsObpV400(context.Background(), obp.EmptyClassJson{}, apiVersion)
-		log.Print(docs)
-		//log.Printf("%#v", docs)
-		if err != nil {
-			responseBody, resperr := io.ReadAll(resp.Body)
-			if resperr != nil {
-				log.Printf("Error reading response body: %s", resperr)
-			}
-			log.Printf("writeResourceDocs error: %s, Response Body: %s", err, responseBody)
-		}
-
-		jsonDocs, err := json.Marshal(docs)
-		if err != nil {
-			log.Printf("writeResourceDocs error, error marshalling docs: %s", err)
-		}
-
-		// Create directory
-		dir := filepath.Join(".", dirname)
-		err = os.MkdirAll(dir, os.ModePerm)
-		if err != nil {
-			log.Printf("error creating directory: %s", err)
-		}
-
-		// Write to json file
-		path := filepath.Join(".", dirname, "ResourceDocs.json")
-		err = os.WriteFile(path, jsonDocs, 0644)
-		if err != nil {
-			log.Printf("writeResourceDocs error, could not write to file \"%s\": %s", path, err)
-		}
+		endpointString = fmt.Sprintf("%s/obp/v5.1.0/resource-docs/%s/obp", obpApiHost, apiVersion)
+		fileName = "ResourceDocs.json"
 
 	} else {
 		log.Printf("error, unknown standard \"%s\", supported standards are \"swagger\" or \"OBP\"", standard)
+	}
+
+	// Create http request
+	request, err := http.NewRequest("GET", endpointString, nil)
+	if err != nil {
+		log.Printf("Error creating HTTP request to OBP: %s", err)
+	}
+	// Add directlogin header
+	request.Header = http.Header{
+		"Content-Type": {"application/json"},
+		"directlogin":  {fmt.Sprintf("token=%s", token)},
+	}
+
+	// Send the request
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		log.Printf("Error sending request to OBP: %s\n", err)
+		return err
+	}
+	// Read the response
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("Error reading response body: %s", err)
+		return err
+	}
+
+	/* Marshal response into json
+	jsonDocs, err := json.Marshal(responseBody)
+	if err != nil {
+		log.Printf("error marhsalling json response: %s", err)
+		return err
+	}
+	*/
+
+	// Create directory
+	dir := filepath.Join(".", dirname)
+	err = os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		log.Printf("error creating directory: %s", err)
+		return err
+	}
+
+	// Write to json file
+	path := filepath.Join(".", dirname, fileName)
+	err = os.WriteFile(path, responseBody, 0644)
+	if err != nil {
+		log.Printf("writeResourceDocs error, could not write to file \"%s\": %s", path, err)
+		return err
 	}
 
 	return nil
