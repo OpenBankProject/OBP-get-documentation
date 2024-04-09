@@ -350,6 +350,8 @@ func main() {
 
 	var outputDir string
 
+	connectors := []string{"akka_vDec2018", "rest_vMar2019", "stored_procedure_vDec2019", "kafka_vSept2018", "kafka_vMay2019"}
+
 	flag.StringVar(&obpApiHost, "obpapihost", "YOUR OBP HOST", "Provide an OBP host to test (include the protocol and port)")
 	flag.StringVar(&username, "username", "YOUR USERNAME", "Username to access the service with")
 	flag.StringVar(&password, "password", "YOUR PASSWORD", "Provide your password")
@@ -403,12 +405,19 @@ func main() {
 
 		err = writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-Swagger", outputDir), obpApiHost, "v5.1.0", "OBP", myToken)
 		if err != nil {
-			log.Printf("error writing resource docs: %s", err)
+			log.Printf("error writing swagger docs: %s", err)
 		}
 
 		err = writeGlossary(fmt.Sprintf("%s/Glossary", outputDir), obpApiHost)
 		if err != nil {
-			log.Printf("error writing resource docs: %s", err)
+			log.Printf("error writing glossary: %s", err)
+		}
+
+		for _, connector := range connectors {
+			err = writeMessageDocs(fmt.Sprintf("%s/MessageDocs", outputDir), obpApiHost, connector)
+			if err != nil {
+				log.Printf("error writing message docs: %s", err)
+			}
 		}
 
 		//createEntitlements(obpApiHost, myToken)
@@ -525,6 +534,51 @@ func writeGlossary(dirname string, obpApiHost string) error {
 		return err
 	}
 
+	return nil
+}
+
+func writeMessageDocs(dirname string, obpApiHost string, connector string) error {
+	endpointString := fmt.Sprintf("%s/obp/v5.1.0/message-docs/%s", obpApiHost, connector)
+
+	// Create http request
+	request, err := http.NewRequest("GET", endpointString, nil)
+	if err != nil {
+		log.Printf("Error creating HTTP request to OBP: %s", err)
+	}
+	// Add directlogin header
+	request.Header = http.Header{
+		"Content-Type": {"application/json"},
+	}
+
+	// Send the request
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		log.Printf("Error sending request to OBP: %s\n", err)
+		return err
+	}
+	// Read the response
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("Error reading response body: %s", err)
+		return err
+	}
+
+	// Create directory
+	dir := filepath.Join(".", dirname)
+	err = os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		log.Printf("error creating directory: %s", err)
+		return err
+	}
+
+	// Write to json file
+	fileName := fmt.Sprintf("MessageDocs-%s.json", connector)
+	path := filepath.Join(".", dirname, fileName)
+	err = os.WriteFile(path, responseBody, 0644)
+	if err != nil {
+		log.Printf("writeMessageDocs error, could not write to file \"%s\": %s", path, err)
+		return err
+	}
 	return nil
 }
 
