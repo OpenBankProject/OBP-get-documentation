@@ -3,7 +3,7 @@
 // This script exercises the Resource Doc (and soon, Glossary) endpoints.
 
 // Run with:
-// go run get-documentation.go -obpapihost http://127.0.0.1:8080 -username YOUR USERNAME -password haGdju%YOUR PASSWORD -consumer YOUR CONSUMER KEY -maxOffsetMetrics 5 -maxLimitMetrics 5 -apiexplorerhost https://apiexplorer-ii-sandbox.openbankproject.com -loopResourceDocs 10 -printResourceDocs 1
+// go run get-documentation.go -obpapihost http://127.0.0.1:8080 -username YOUR USERNAME -password haGdju%YOUR PASSWORD -consumer YOUR CONSUMER KEY -maxOffsetMetrics 5 -maxLimitMetrics 5 -apiexplorerhost https://apiexplorer-ii-sandbox.openbankproject.com -loopResourceDocs 10 -printResourceDocs 1 -outputDir "Documentation"
 
 // This script will print your user_id as a helper.
 
@@ -411,11 +411,6 @@ func main() {
 				log.Printf("error writing swagger docs: %s", err)
 			}
 
-			err = writeGlossary(fmt.Sprintf("%s/Glossary", outputDir), obpApiHost, version)
-			if err != nil {
-				log.Printf("error writing glossary: %s", err)
-			}
-
 			for _, connector := range connectors {
 				err = writeMessageDocs(fmt.Sprintf("%s/MessageDocs", outputDir), obpApiHost, connector, version)
 				if err != nil {
@@ -423,6 +418,11 @@ func main() {
 				}
 			}
 
+		}
+
+		err := writeGlossary(fmt.Sprintf("%s/Glossary", outputDir), obpApiHost, "v5.1.0")
+		if err != nil {
+			log.Printf("error writing glossary: %s", err)
 		}
 		//createEntitlements(obpApiHost, myToken)
 
@@ -576,7 +576,7 @@ func writeMessageDocs(dirname string, obpApiHost string, connector string, apiVe
 	}
 
 	// Write to json file
-	fileName := fmt.Sprintf("MessageDocs-%s.json", connector)
+	fileName := fmt.Sprintf("MessageDocs-OBP%s-%s.json", apiVersion, connector)
 	path := filepath.Join(".", dirname, fileName)
 	err = os.WriteFile(path, responseBody, 0644)
 	if err != nil {
