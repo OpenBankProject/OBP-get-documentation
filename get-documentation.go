@@ -351,6 +351,7 @@ func main() {
 	var outputDir string
 
 	connectors := []string{"akka_vDec2018", "rest_vMar2019", "stored_procedure_vDec2019", "kafka_vSept2018", "kafka_vMay2019"}
+	apiVersions := []string{"v5.1.0", "v5.0.0", "v4.0.0"}
 
 	flag.StringVar(&obpApiHost, "obpapihost", "YOUR OBP HOST", "Provide an OBP host to test (include the protocol and port)")
 	flag.StringVar(&username, "username", "YOUR USERNAME", "Username to access the service with")
@@ -398,28 +399,31 @@ func main() {
 			fmt.Printf("errRoot: %s\n", errRoot)
 		}
 
-		err := writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-RD", outputDir), obpApiHost, "v5.1.0", "OBP", myToken)
-		if err != nil {
-			log.Printf("error writing resource docs: %s", err)
-		}
+		for _, version := range apiVersions {
 
-		err = writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-Swagger", outputDir), obpApiHost, "v5.1.0", "OBP", myToken)
-		if err != nil {
-			log.Printf("error writing swagger docs: %s", err)
-		}
-
-		err = writeGlossary(fmt.Sprintf("%s/Glossary", outputDir), obpApiHost)
-		if err != nil {
-			log.Printf("error writing glossary: %s", err)
-		}
-
-		for _, connector := range connectors {
-			err = writeMessageDocs(fmt.Sprintf("%s/MessageDocs", outputDir), obpApiHost, connector)
+			err := writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-RD", outputDir), obpApiHost, version, "OBP", myToken)
 			if err != nil {
-				log.Printf("error writing message docs: %s", err)
+				log.Printf("error writing resource docs: %s", err)
 			}
-		}
 
+			err = writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-Swagger", outputDir), obpApiHost, version, "OBP", myToken)
+			if err != nil {
+				log.Printf("error writing swagger docs: %s", err)
+			}
+
+			err = writeGlossary(fmt.Sprintf("%s/Glossary", outputDir), obpApiHost, version)
+			if err != nil {
+				log.Printf("error writing glossary: %s", err)
+			}
+
+			for _, connector := range connectors {
+				err = writeMessageDocs(fmt.Sprintf("%s/MessageDocs", outputDir), obpApiHost, connector, version)
+				if err != nil {
+					log.Printf("error writing message docs: %s", err)
+				}
+			}
+
+		}
 		//createEntitlements(obpApiHost, myToken)
 
 		//getVariousResourceDocs(obpApiHost, myToken, apiExplorerHost, tags, loopResourceDocs, printResourceDocs)
@@ -491,8 +495,8 @@ func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, sta
 	return nil
 }
 
-func writeGlossary(dirname string, obpApiHost string) error {
-	endpointString := fmt.Sprintf("%s/obp/v5.1.0/api/glossary", obpApiHost)
+func writeGlossary(dirname string, obpApiHost string, apiVersion string) error {
+	endpointString := fmt.Sprintf("%s/obp/%s/api/glossary", obpApiHost, apiVersion)
 
 	// Create http request
 	request, err := http.NewRequest("GET", endpointString, nil)
@@ -537,8 +541,8 @@ func writeGlossary(dirname string, obpApiHost string) error {
 	return nil
 }
 
-func writeMessageDocs(dirname string, obpApiHost string, connector string) error {
-	endpointString := fmt.Sprintf("%s/obp/v5.1.0/message-docs/%s", obpApiHost, connector)
+func writeMessageDocs(dirname string, obpApiHost string, connector string, apiVersion string) error {
+	endpointString := fmt.Sprintf("%s/obp/%s/message-docs/%s", obpApiHost, apiVersion, connector)
 
 	// Create http request
 	request, err := http.NewRequest("GET", endpointString, nil)
