@@ -174,6 +174,12 @@ type Swagger struct {
 	Schemes     []string `json:"schemes"`
 }
 
+type Meta struct {
+	Licence   string `json:"licence"`
+	GitCommit string `json:"git_commit"`
+	Date      string `json:"date"`
+}
+
 func getSwagger(modifier string) Swagger {
 
 	// Create Info struct
@@ -347,6 +353,7 @@ func main() {
 
 	var tags string
 	var printResourceDocs int
+	var license string
 
 	var outputDir string
 
@@ -359,6 +366,7 @@ func main() {
 	flag.StringVar(&consumerKey, "consumer", "YOUR CONSUMER KEY", "Provide your consumer key")
 	flag.StringVar(&apiExplorerHost, "apiexplorerhost", "API EXPLORER II HOST", "Provide API Explorer II for documentation links ")
 	flag.StringVar(&tags, "tags", "", "Provide Resource Doc tags")
+	flag.StringVar(&license, "license", "", "Provide License")
 	flag.StringVar(&outputDir, "outputDir", "", "Provide name of a directory where documentation files will be saved")
 
 	flag.IntVar(&maxOffsetMetrics, "maxOffsetMetrics", 10, "Provide your maxOffsetMetrics")
@@ -399,30 +407,39 @@ func main() {
 			fmt.Printf("errRoot: %s\n", errRoot)
 		}
 
+		currentDate := time.Now()
+		//dateString := currentDate.Format("02-01-2006")
+
+		metaData := Meta{
+			Licence:   license,
+			GitCommit: myRoot.GitCommit,
+			Date:      currentDate.String(),
+		}
+
 		for _, version := range apiVersions {
 
-			err := writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-RD", outputDir), obpApiHost, version, "OBP", myToken)
+			err := writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-RD", outputDir), obpApiHost, version, "OBP", myToken, metaData)
 			if err != nil {
 				log.Printf("error writing resource docs: %s", err)
 			}
 
-			err = writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-Swagger", outputDir), obpApiHost, version, "OBP", myToken)
+			err = writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-Swagger", outputDir), obpApiHost, version, "OBP", myToken, metaData)
 			if err != nil {
 				log.Printf("error writing swagger docs: %s", err)
 			}
 
+			err = writeGlossary(fmt.Sprintf("%s/Glossary", outputDir), obpApiHost, version, metaData)
+			if err != nil {
+				log.Printf("error writing glossary: %s", err)
+			}
+
 			for _, connector := range connectors {
-				err = writeMessageDocs(fmt.Sprintf("%s/MessageDocs", outputDir), obpApiHost, connector, version)
+				err = writeMessageDocs(fmt.Sprintf("%s/MessageDocs", outputDir), obpApiHost, connector, version, metaData)
 				if err != nil {
 					log.Printf("error writing message docs: %s", err)
 				}
 			}
 
-		}
-
-		err := writeGlossary(fmt.Sprintf("%s/Glossary", outputDir), obpApiHost, "v5.1.0")
-		if err != nil {
-			log.Printf("error writing glossary: %s", err)
 		}
 		//createEntitlements(obpApiHost, myToken)
 
@@ -436,7 +453,7 @@ func main() {
 
 }
 
-func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, standard string, token string) error {
+func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, standard string, token string, metaData Meta) error {
 
 	var endpointString string
 	var fileName string
@@ -469,11 +486,29 @@ func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, sta
 		log.Printf("Error sending request to OBP: %s\n", err)
 		return err
 	}
-	// Read the response
-	responseBody, err := io.ReadAll(response.Body)
+
+	defer response.Body.Close()
+
+	var responseBody interface{}
+	err = json.NewDecoder(response.Body).Decode(&responseBody)
 	if err != nil {
-		log.Printf("Error reading response body: %s", err)
+		log.Printf("Error decoding response body: %s", err)
 		return err
+	}
+
+	// Assert the responseBody to a map[string]interface{}
+	responseData, ok := responseBody.(map[string]interface{})
+	if !ok {
+		log.Printf("Error asserting response body to map[string]interface{}")
+		return fmt.Errorf("error asserting response body")
+	}
+
+	data := struct {
+		Meta Meta                   `json:"meta"`
+		Data map[string]interface{} `json:"data"`
+	}{
+		Meta: metaData,
+		Data: responseData,
 	}
 
 	// Create directory
@@ -484,9 +519,15 @@ func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, sta
 		return err
 	}
 
+	marshalled, err := json.MarshalIndent(data, "", "	")
+	//marshalled, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("error marshalling JSON: %s", err)
+	}
+
 	// Write to json file
 	path := filepath.Join(".", dirname, fileName)
-	err = os.WriteFile(path, responseBody, 0644)
+	err = os.WriteFile(path, marshalled, 0644)
 	if err != nil {
 		log.Printf("writeResourceDocs error, could not write to file \"%s\": %s", path, err)
 		return err
@@ -495,7 +536,7 @@ func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, sta
 	return nil
 }
 
-func writeGlossary(dirname string, obpApiHost string, apiVersion string) error {
+func writeGlossary(dirname string, obpApiHost string, apiVersion string, metaData Meta) error {
 	endpointString := fmt.Sprintf("%s/obp/%s/api/glossary", obpApiHost, apiVersion)
 
 	// Create http request
@@ -514,11 +555,31 @@ func writeGlossary(dirname string, obpApiHost string, apiVersion string) error {
 		log.Printf("Error sending request to OBP: %s\n", err)
 		return err
 	}
-	// Read the response
-	responseBody, err := io.ReadAll(response.Body)
+
+	defer response.Body.Close()
+
+	// Read response data
+	var responseBody interface{}
+	err = json.NewDecoder(response.Body).Decode(&responseBody)
 	if err != nil {
-		log.Printf("Error reading response body: %s", err)
+		log.Printf("Error decoding response body: %s", err)
 		return err
+	}
+
+	// Assert the responseBody to a map[string]interface{}
+	responseData, ok := responseBody.(map[string]interface{})
+	if !ok {
+		log.Printf("Error asserting response body to map[string]interface{}")
+		return fmt.Errorf("error asserting response body")
+	}
+
+	// Add metadata object to top of file
+	data := struct {
+		Meta Meta                   `json:"meta"`
+		Data map[string]interface{} `json:"data"`
+	}{
+		Meta: metaData,
+		Data: responseData,
 	}
 
 	// Create directory
@@ -529,10 +590,16 @@ func writeGlossary(dirname string, obpApiHost string, apiVersion string) error {
 		return err
 	}
 
+	// Marshal json data
+	marshalled, err := json.MarshalIndent(data, "", "	")
+	if err != nil {
+		return fmt.Errorf("error marshalling JSON: %s", err)
+	}
+
 	// Write to json file
-	fileName := "Glossary.json"
+	fileName := fmt.Sprintf("Glossary-OBP%s.json", apiVersion)
 	path := filepath.Join(".", dirname, fileName)
-	err = os.WriteFile(path, responseBody, 0644)
+	err = os.WriteFile(path, marshalled, 0644)
 	if err != nil {
 		log.Printf("writeGlossary error, could not write to file \"%s\": %s", path, err)
 		return err
@@ -541,7 +608,7 @@ func writeGlossary(dirname string, obpApiHost string, apiVersion string) error {
 	return nil
 }
 
-func writeMessageDocs(dirname string, obpApiHost string, connector string, apiVersion string) error {
+func writeMessageDocs(dirname string, obpApiHost string, connector string, apiVersion string, metaData Meta) error {
 	endpointString := fmt.Sprintf("%s/obp/%s/message-docs/%s", obpApiHost, apiVersion, connector)
 
 	// Create http request
@@ -560,11 +627,31 @@ func writeMessageDocs(dirname string, obpApiHost string, connector string, apiVe
 		log.Printf("Error sending request to OBP: %s\n", err)
 		return err
 	}
-	// Read the response
-	responseBody, err := io.ReadAll(response.Body)
+
+	defer response.Body.Close()
+
+	// Read response data
+	var responseBody interface{}
+	err = json.NewDecoder(response.Body).Decode(&responseBody)
 	if err != nil {
-		log.Printf("Error reading response body: %s", err)
+		log.Printf("Error decoding response body: %s", err)
 		return err
+	}
+
+	// Assert the responseBody to a map[string]interface{}
+	responseData, ok := responseBody.(map[string]interface{})
+	if !ok {
+		log.Printf("Error asserting response body to map[string]interface{}")
+		return fmt.Errorf("error asserting response body")
+	}
+
+	// Add metadata object to top of file
+	data := struct {
+		Meta Meta                   `json:"meta"`
+		Data map[string]interface{} `json:"data"`
+	}{
+		Meta: metaData,
+		Data: responseData,
 	}
 
 	// Create directory
@@ -575,10 +662,16 @@ func writeMessageDocs(dirname string, obpApiHost string, connector string, apiVe
 		return err
 	}
 
+	// Marshal json data
+	marshalled, err := json.MarshalIndent(data, "", "	")
+	if err != nil {
+		return fmt.Errorf("error marshalling JSON: %s", err)
+	}
+
 	// Write to json file
 	fileName := fmt.Sprintf("MessageDocs-OBP%s-%s.json", apiVersion, connector)
 	path := filepath.Join(".", dirname, fileName)
-	err = os.WriteFile(path, responseBody, 0644)
+	err = os.WriteFile(path, marshalled, 0644)
 	if err != nil {
 		log.Printf("writeMessageDocs error, could not write to file \"%s\": %s", path, err)
 		return err
