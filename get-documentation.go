@@ -355,7 +355,7 @@ func main() {
 	var printResourceDocs int
 	var license string
 
-	var outputDir string
+	var baseOutputDirectory string
 
 	connectors := []string{"akka_vDec2018", "rest_vMar2019", "stored_procedure_vDec2019", "kafka_vSept2018", "kafka_vMay2019"}
 	apiVersions := []string{"v5.1.0", "v5.0.0", "v4.0.0"}
@@ -366,8 +366,8 @@ func main() {
 	flag.StringVar(&consumerKey, "consumer", "YOUR CONSUMER KEY", "Provide your consumer key")
 	flag.StringVar(&apiExplorerHost, "apiexplorerhost", "API EXPLORER II HOST", "Provide API Explorer II for documentation links ")
 	flag.StringVar(&tags, "tags", "", "Provide Resource Doc tags")
-	flag.StringVar(&license, "license", "Copyright TESOBE GmbH 2011 - 2024. Licenced under the AGPLv3 i.e. https://www.gnu.org/licenses/agpl-3.0.en.html. Commercial licences are available from TESOBE GmbH. Note: Any links to http(s) services are provided for reference only and do not form part of the licenced material.", "Provide License")
-	flag.StringVar(&outputDir, "outputDir", "", "Provide name of a directory where documentation files will be saved")
+	flag.StringVar(&license, "license", "", "Provide License")
+	flag.StringVar(&baseOutputDirectory, "baseOutputDirectory", "", "Provide name of a directory where documentation files will be saved")
 
 	flag.IntVar(&maxOffsetMetrics, "maxOffsetMetrics", 10, "Provide your maxOffsetMetrics")
 	flag.IntVar(&maxLimitMetrics, "maxLimitMetrics", 5, "Provide your maxLimitMetrics")
@@ -418,23 +418,23 @@ func main() {
 
 		for _, version := range apiVersions {
 
-			err := writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-RD", outputDir), obpApiHost, version, "OBP", myToken, metaData)
+			err := writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-RD", baseOutputDirectory), obpApiHost, version, "OBP", myToken, metaData)
 			if err != nil {
 				log.Printf("error writing resource docs: %s", err)
 			}
 
-			err = writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-Swagger", outputDir), obpApiHost, version, "OBP", myToken, metaData)
+			err = writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-Swagger", baseOutputDirectory), obpApiHost, version, "OBP", myToken, metaData)
 			if err != nil {
 				log.Printf("error writing swagger docs: %s", err)
 			}
 
-			err = writeGlossary(fmt.Sprintf("%s/Glossary", outputDir), obpApiHost, version, metaData)
+			err = writeGlossary(fmt.Sprintf("%s/Glossary", baseOutputDirectory), obpApiHost, version, metaData)
 			if err != nil {
 				log.Printf("error writing glossary: %s", err)
 			}
 
 			for _, connector := range connectors {
-				err = writeMessageDocs(fmt.Sprintf("%s/MessageDocs", outputDir), obpApiHost, connector, version, metaData)
+				err = writeMessageDocs(fmt.Sprintf("%s/MessageDocs", baseOutputDirectory), obpApiHost, connector, version, metaData)
 				if err != nil {
 					log.Printf("error writing message docs: %s", err)
 				}
@@ -453,7 +453,7 @@ func main() {
 
 }
 
-func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, standard string, token string, metaData Meta) error {
+func writeResourceDocs(fullOutputDirectory string, obpApiHost string, apiVersion string, standard string, token string, metaData Meta) error {
 
 	var endpointString string
 	var fileName string
@@ -512,7 +512,7 @@ func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, sta
 	}
 
 	// Create directory
-	dir := filepath.Join(".", dirname)
+	dir := filepath.Join(".", fullOutputDirectory)
 	err = os.MkdirAll(dir, os.ModePerm)
 	if err != nil {
 		log.Printf("error creating directory: %s", err)
@@ -526,7 +526,7 @@ func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, sta
 	}
 
 	// Write to json file
-	path := filepath.Join(".", dirname, fileName)
+	path := filepath.Join(".", fullOutputDirectory, fileName)
 	err = os.WriteFile(path, marshalled, 0644)
 	if err != nil {
 		log.Printf("writeResourceDocs error, could not write to file \"%s\": %s", path, err)
@@ -536,7 +536,7 @@ func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, sta
 	return nil
 }
 
-func writeGlossary(dirname string, obpApiHost string, apiVersion string, metaData Meta) error {
+func writeGlossary(fullOutputDirectory string, obpApiHost string, apiVersion string, metaData Meta) error {
 	endpointString := fmt.Sprintf("%s/obp/%s/api/glossary", obpApiHost, apiVersion)
 
 	// Create http request
@@ -583,7 +583,7 @@ func writeGlossary(dirname string, obpApiHost string, apiVersion string, metaDat
 	}
 
 	// Create directory
-	dir := filepath.Join(".", dirname)
+	dir := filepath.Join(".", fullOutputDirectory)
 	err = os.MkdirAll(dir, os.ModePerm)
 	if err != nil {
 		log.Printf("error creating directory: %s", err)
@@ -598,7 +598,7 @@ func writeGlossary(dirname string, obpApiHost string, apiVersion string, metaDat
 
 	// Write to json file
 	fileName := fmt.Sprintf("Glossary-OBP%s.json", apiVersion)
-	path := filepath.Join(".", dirname, fileName)
+	path := filepath.Join(".", fullOutputDirectory, fileName)
 	err = os.WriteFile(path, marshalled, 0644)
 	if err != nil {
 		log.Printf("writeGlossary error, could not write to file \"%s\": %s", path, err)
@@ -608,7 +608,7 @@ func writeGlossary(dirname string, obpApiHost string, apiVersion string, metaDat
 	return nil
 }
 
-func writeMessageDocs(dirname string, obpApiHost string, connector string, apiVersion string, metaData Meta) error {
+func writeMessageDocs(fullOutputDirectory string, obpApiHost string, connector string, apiVersion string, metaData Meta) error {
 	endpointString := fmt.Sprintf("%s/obp/%s/message-docs/%s", obpApiHost, apiVersion, connector)
 
 	// Create http request
@@ -655,7 +655,7 @@ func writeMessageDocs(dirname string, obpApiHost string, connector string, apiVe
 	}
 
 	// Create directory
-	dir := filepath.Join(".", dirname)
+	dir := filepath.Join(".", fullOutputDirectory)
 	err = os.MkdirAll(dir, os.ModePerm)
 	if err != nil {
 		log.Printf("error creating directory: %s", err)
@@ -670,7 +670,7 @@ func writeMessageDocs(dirname string, obpApiHost string, connector string, apiVe
 
 	// Write to json file
 	fileName := fmt.Sprintf("MessageDocs-OBP%s-%s.json", apiVersion, connector)
-	path := filepath.Join(".", dirname, fileName)
+	path := filepath.Join(".", fullOutputDirectory, fileName)
 	err = os.WriteFile(path, marshalled, 0644)
 	if err != nil {
 		log.Printf("writeMessageDocs error, could not write to file \"%s\": %s", path, err)
