@@ -366,7 +366,7 @@ func main() {
 	flag.StringVar(&consumerKey, "consumer", "YOUR CONSUMER KEY", "Provide your consumer key")
 	flag.StringVar(&apiExplorerHost, "apiexplorerhost", "API EXPLORER II HOST", "Provide API Explorer II for documentation links ")
 	flag.StringVar(&tags, "tags", "", "Provide Resource Doc tags")
-	flag.StringVar(&license, "license", "Copyright TESOBE 2024. Licenced under the AGPL", "Provide License")
+	flag.StringVar(&license, "license", "Copyright TESOBE GmbH 2011 - 2024. Licenced under the AGPLv3 i.e. https://www.gnu.org/licenses/agpl-3.0.en.html. Commercial licences are available from TESOBE GmbH. Note: Any links to http(s) services are provided for reference only and do not form part of the licenced material.", "Provide License")
 	flag.StringVar(&outputDir, "outputDir", "", "Provide name of a directory where documentation files will be saved")
 
 	flag.IntVar(&maxOffsetMetrics, "maxOffsetMetrics", 10, "Provide your maxOffsetMetrics")
