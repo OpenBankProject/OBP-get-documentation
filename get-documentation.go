@@ -423,7 +423,7 @@ func main() {
 				log.Printf("error writing resource docs: %s", err)
 			}
 
-			err = writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-Swagger", outputDir), obpApiHost, version, "OBP", myToken, metaData)
+			err = writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-Swagger", outputDir), obpApiHost, version, "swagger", myToken, metaData)
 			if err != nil {
 				log.Printf("error writing swagger docs: %s", err)
 			}
@@ -460,11 +460,9 @@ func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, sta
 	if standard == "swagger" {
 		endpointString = fmt.Sprintf("%s/obp/v5.1.0/resource-docs/%s/swagger", obpApiHost, apiVersion)
 		fileName = fmt.Sprintf("Swagger-OBP%s.json", apiVersion)
-
 	} else if standard == "OBP" {
 		endpointString = fmt.Sprintf("%s/obp/v5.1.0/resource-docs/%s/obp", obpApiHost, apiVersion)
 		fileName = fmt.Sprintf("ResourceDocs-OBP%s.json", apiVersion)
-
 	} else {
 		log.Printf("error, unknown standard \"%s\", supported standards are \"swagger\" or \"OBP\"", standard)
 	}
@@ -532,6 +530,8 @@ func writeResourceDocs(dirname string, obpApiHost string, apiVersion string, sta
 		log.Printf("writeResourceDocs error, could not write to file \"%s\": %s", path, err)
 		return err
 	}
+
+	log.Printf("I wrote ResourceDocs to %s", path)
 
 	return nil
 }
@@ -605,6 +605,7 @@ func writeGlossary(dirname string, obpApiHost string, apiVersion string, metaDat
 		return err
 	}
 
+	log.Printf("I wrote Glossary to %s", path)
 	return nil
 }
 
@@ -675,6 +676,8 @@ func writeMessageDocs(dirname string, obpApiHost string, connector string, apiVe
 	if err != nil {
 		log.Printf("writeMessageDocs error, could not write to file \"%s\": %s", path, err)
 		return err
+	} else {
+		log.Printf("I wrote MessageDocs to %s", path)
 	}
 	return nil
 }
