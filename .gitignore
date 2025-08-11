@@ -1,0 +1,5 @@
+# Ignore all files starting with a dot
+.*
+
+# But don't ignore .gitignore itself
+!.gitignore
