@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -366,7 +367,7 @@ func main() {
 	flag.StringVar(&consumerKey, "consumer", "YOUR CONSUMER KEY", "Provide your consumer key")
 	flag.StringVar(&apiExplorerHost, "apiexplorerhost", "API EXPLORER II HOST", "Provide API Explorer II for documentation links ")
 	flag.StringVar(&tags, "tags", "", "Provide Resource Doc tags")
-	flag.StringVar(&license, "license", "", "Copyright TESOBE GmbH 2011 - 2025. Licenced under the AGPLv3 i.e. https://www.gnu.org/licenses/agpl-3.0.en.html. Commercial licences are available from TESOBE GmbH. Note: Any links to http(s) services are provided for reference only and do not form part of the licenced material.")
+	flag.StringVar(&license, "license", "Copyright TESOBE GmbH 2011 - 2025. Licenced under the AGPLv3 i.e. https://www.gnu.org/licenses/agpl-3.0.en.html. Commercial licences are available from TESOBE GmbH. Note: Any links to http(s) services are provided for reference only and do not form part of the licenced material.", "Provide license text for the documentation")
 	flag.StringVar(&baseOutputDirectory, "baseOutputDirectory", "", "Provide name of a directory where documentation files will be saved")
 
 	flag.IntVar(&maxOffsetMetrics, "maxOffsetMetrics", 10, "Provide your maxOffsetMetrics")
@@ -433,6 +434,11 @@ func main() {
 				log.Printf("error writing glossary: %s", err)
 			}
 
+			err = writeRoles(fmt.Sprintf("%s/Roles", baseOutputDirectory), obpApiHost, version, myToken, metaData)
+			if err != nil {
+				log.Printf("error writing roles: %s", err)
+			}
+
 			for _, connector := range connectors {
 				err = writeMessageDocs(fmt.Sprintf("%s/MessageDocs", baseOutputDirectory), obpApiHost, connector, version, metaData)
 				if err != nil {
@@ -458,10 +464,10 @@ func writeResourceDocs(fullOutputDirectory string, obpApiHost string, apiVersion
 	var endpointString string
 	var fileName string
 	if standard == "swagger" {
-		endpointString = fmt.Sprintf("%s/obp/v5.1.0/resource-docs/%s/swagger", obpApiHost, apiVersion)
+		endpointString = fmt.Sprintf("%s/obp/v5.1.0/resource-docs/%s/swagger?content=static", obpApiHost, apiVersion)
 		fileName = fmt.Sprintf("Swagger-OBP%s.json", apiVersion)
 	} else if standard == "OBP" {
-		endpointString = fmt.Sprintf("%s/obp/v5.1.0/resource-docs/%s/obp", obpApiHost, apiVersion)
+		endpointString = fmt.Sprintf("%s/obp/v5.1.0/resource-docs/%s/obp?content=static", obpApiHost, apiVersion)
 		fileName = fmt.Sprintf("ResourceDocs-OBP%s.json", apiVersion)
 	} else {
 		log.Printf("error, unknown standard \"%s\", supported standards are \"swagger\" or \"OBP\"", standard)
@@ -606,6 +612,101 @@ func writeGlossary(fullOutputDirectory string, obpApiHost string, apiVersion str
 	}
 
 	log.Printf("I wrote Glossary to %s", path)
+	return nil
+}
+
+func writeRoles(fullOutputDirectory string, obpApiHost string, apiVersion string, token string, metaData Meta) error {
+	endpointString := fmt.Sprintf("%s/obp/%s/roles", obpApiHost, apiVersion)
+
+	// Create http request
+	request, err := http.NewRequest("GET", endpointString, nil)
+	if err != nil {
+		log.Printf("Error creating HTTP request to OBP: %s", err)
+	}
+	// Add directlogin header
+	request.Header = http.Header{
+		"Content-Type": {"application/json"},
+		"directlogin":  {fmt.Sprintf("token=%s", token)},
+	}
+
+	// Send the request
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		log.Printf("Error sending request to OBP: %s\n", err)
+		return err
+	}
+
+	defer response.Body.Close()
+
+	// Read response data
+	var responseBody interface{}
+	err = json.NewDecoder(response.Body).Decode(&responseBody)
+	if err != nil {
+		log.Printf("Error decoding response body: %s", err)
+		return err
+	}
+
+	// Assert the responseBody to a map[string]interface{}
+	responseData, ok := responseBody.(map[string]interface{})
+	if !ok {
+		log.Printf("Error asserting response body to map[string]interface{}")
+		return fmt.Errorf("error asserting response body")
+	}
+
+	// TODO: Remove this filter when the new Get Roles (Static) endpoint is ready
+	// Filter out roles that contain underscores
+	if roles, exists := responseData["roles"]; exists {
+		if rolesSlice, ok := roles.([]interface{}); ok {
+			var filteredRoles []interface{}
+			for _, role := range rolesSlice {
+				if roleMap, ok := role.(map[string]interface{}); ok {
+					if roleName, exists := roleMap["role"]; exists {
+						if roleNameStr, ok := roleName.(string); ok {
+							// Exclude roles with underscore in the name
+							if !strings.Contains(roleNameStr, "_") {
+								filteredRoles = append(filteredRoles, role)
+							}
+						}
+					}
+				}
+			}
+			responseData["roles"] = filteredRoles
+		}
+	}
+
+	// Add metadata object to top of file
+	data := struct {
+		Meta Meta                   `json:"meta"`
+		Data map[string]interface{} `json:"data"`
+	}{
+		Meta: metaData,
+		Data: responseData,
+	}
+
+	// Create directory
+	dir := filepath.Join(".", fullOutputDirectory)
+	err = os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		log.Printf("error creating directory: %s", err)
+		return err
+	}
+
+	// Marshal json data
+	marshalled, err := json.MarshalIndent(data, "", "	")
+	if err != nil {
+		return fmt.Errorf("error marshalling JSON: %s", err)
+	}
+
+	// Write to json file
+	fileName := fmt.Sprintf("Roles-OBP%s.json", apiVersion)
+	path := filepath.Join(".", fullOutputDirectory, fileName)
+	err = os.WriteFile(path, marshalled, 0644)
+	if err != nil {
+		log.Printf("writeRoles error, could not write to file \"%s\": %s", path, err)
+		return err
+	}
+
+	log.Printf("I wrote Roles to %s", path)
 	return nil
 }
 
