@@ -357,7 +357,7 @@ func main() {
 
 	var baseOutputDirectory string
 
-	connectors := []string{"akka_vDec2018", "rest_vMar2019", "stored_procedure_vDec2019", "kafka_vSept2018", "kafka_vMay2019"}
+	connectors := []string{"akka_vDec2018", "rest_vMar2019", "stored_procedure_vDec2019", "kafka_vMay2019", "rabbitmq_vOct2024"}
 	apiVersions := []string{"v5.1.0", "v5.0.0", "v4.0.0"}
 
 	flag.StringVar(&obpApiHost, "obpapihost", "YOUR OBP HOST", "Provide an OBP host to test (include the protocol and port)")
@@ -366,7 +366,7 @@ func main() {
 	flag.StringVar(&consumerKey, "consumer", "YOUR CONSUMER KEY", "Provide your consumer key")
 	flag.StringVar(&apiExplorerHost, "apiexplorerhost", "API EXPLORER II HOST", "Provide API Explorer II for documentation links ")
 	flag.StringVar(&tags, "tags", "", "Provide Resource Doc tags")
-	flag.StringVar(&license, "license", "", "Provide License")
+	flag.StringVar(&license, "license", "", "Copyright TESOBE GmbH 2011 - 2025. Licenced under the AGPLv3 i.e. https://www.gnu.org/licenses/agpl-3.0.en.html. Commercial licences are available from TESOBE GmbH. Note: Any links to http(s) services are provided for reference only and do not form part of the licenced material.")
 	flag.StringVar(&baseOutputDirectory, "baseOutputDirectory", "", "Provide name of a directory where documentation files will be saved")
 
 	flag.IntVar(&maxOffsetMetrics, "maxOffsetMetrics", 10, "Provide your maxOffsetMetrics")
@@ -423,7 +423,7 @@ func main() {
 				log.Printf("error writing resource docs: %s", err)
 			}
 
-			err = writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-Swagger", baseOutputDirectory), obpApiHost, version, "OBP", myToken, metaData)
+			err = writeResourceDocs(fmt.Sprintf("%s/ResourceDocs-Swagger", baseOutputDirectory), obpApiHost, version, "swagger", myToken, metaData)
 			if err != nil {
 				log.Printf("error writing swagger docs: %s", err)
 			}
