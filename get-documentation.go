@@ -358,7 +358,7 @@ func main() {
 
 	var baseOutputDirectory string
 
-	connectors := []string{"akka_vDec2018", "rest_vMar2019", "stored_procedure_vDec2019", "kafka_vMay2019", "rabbitmq_vOct2024"}
+	connectors := []string{"akka_vDec2018", "rest_vMar2019", "stored_procedure_vDec2019", "rabbitmq_vOct2024"}
 	apiVersions := []string{"v5.1.0", "v5.0.0", "v4.0.0"}
 
 	flag.StringVar(&obpApiHost, "obpapihost", "YOUR OBP HOST", "Provide an OBP host to test (include the protocol and port)")
